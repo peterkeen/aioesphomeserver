@@ -17,6 +17,11 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     PingResponse,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
+    DeviceInfoRequest,
+    DeviceInfoResponse,
+    ListEntitiesRequest,
+    ListEntitiesDoneResponse,
+    SubscribeStatesRequest,
 )
 
 from aioesphomeapi.core import (
@@ -62,12 +67,16 @@ class Connection:
             await self.handle_hello(msg)
         elif type(msg) == ConnectRequest:
             await self.handle_connect(msg)
+        elif type(msg) == DisconnectRequest:
+            await self.handle_disconnect(msg)
         elif type(msg) == SubscribeLogsRequest:
             await self.handle_subscribe_logs(msg)
         elif type(msg) == PingRequest:
             await self.handle_ping(msg)
+        elif type(msg) == DeviceInfoRequest:
+            await self.handle_device_info(msg)
         else:
-            await self.server.queue_message(self, msg)
+            await self.server.handle_message(self, msg)
 
     async def handle_hello(self, msg):
         resp = HelloResponse(api_version_major=1, api_version_minor=10)
@@ -75,6 +84,20 @@ class Connection:
 
     async def handle_connect(self, msg):
         resp = ConnectResponse()
+        await self.write_message(resp)
+
+    async def handle_disconnect(self, msg):
+        resp = DisconnectResponse()
+        await self.write_message(resp)
+        self.writer.close()
+        await self.writer.wait_closed()
+
+    async def handle_device_info(self, msg):
+        resp = DeviceInfoResponse(
+            uses_password = False,
+            name = "Test Server",
+            mac_address = "AC:BC:32:89:0E:A9",
+        )
         await self.write_message(resp)
 
     async def handle_subscribe_logs(self, msg):
@@ -168,9 +191,17 @@ class Server:
         task.add_done_callback(self._clients.discard)
 
     async def handle_message(self, client, message):
-        for entity in self._entities:
-            if await entity.can_handle(message):
-                entity.handle(client, message)
+        if type(msg) == ListEntitiesMessage:
+            await self.handle_list_entities(client, message)
+        else:
+          for entity in self._entities:
+              if await entity.can_handle(message):
+                  entity.handle(client, message)
+
+    async def handle_list_entities(self, client, message):
+        # loop through the entities, then...
+        done_msg = ListEntitiesDoneResponse()
+        await client.write_message(done_msg)
 
 async def run_server():
     server = Server()
