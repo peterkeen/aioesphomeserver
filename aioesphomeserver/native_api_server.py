@@ -45,7 +45,7 @@ def _varuint_to_bytes(value: _int) -> bytes:
             result.append(temp)
     return bytes(result)
 
-class Connection:
+class NativeApiConnection:
     def __init__(self, server, reader, writer):
         self.server = server
         self.reader = reader
@@ -169,7 +169,7 @@ class Connection:
             bitpos += 7
         return -1
 
-class Server(BasicEntity):
+class NativeApiServer(BasicEntity):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._clients = set()
@@ -178,7 +178,10 @@ class Server(BasicEntity):
         server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053)
         async with server:
             print("starting!")
-            await server.serve_forever()
+            await server.start_serving()
+
+            while True:
+                await asyncio.sleep(3600)
 
     async def log(self, message):
         print(message)
@@ -187,7 +190,7 @@ class Server(BasicEntity):
                 await client.log(message)
 
     async def handle_client(self, reader, writer):
-        connection = Connection(self, reader, writer)
+        connection = NativeApiConnection(self, reader, writer)
         self._clients.add(connection)
         task = asyncio.create_task(connection.start())
         task.add_done_callback(self._clients.discard)

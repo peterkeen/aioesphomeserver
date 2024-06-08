@@ -7,6 +7,7 @@ from .basic_entity import *
 from .binary_sensor import *
 from .device import *
 from .listener import *
-from .server import *
+from .native_api_server import *
 from .switch import *
+from .web_server import *
 

@@ -4,9 +4,10 @@ from . import (
     BinarySensorEntity, 
     Device, 
     EntityListener,
-    Server,
+    NativeApiServer,
     SwitchEntity, 
     SwitchStateResponse,
+    WebServer,
 )
 
 class SwitchListener(EntityListener):
@@ -16,10 +17,16 @@ class SwitchListener(EntityListener):
             await sensor.set_state(message.state)
                 
 async def run_server():
-    server = Server(
+    server = NativeApiServer(
         name="_server",
         unique_id="_server",
         object_id="_server"
+    )
+
+    web_server = WebServer(
+        name="_web_server",
+        unique_id="_web_server",
+        object_id="_web_server",
     )
 
     device = Device(
@@ -31,6 +38,7 @@ async def run_server():
     )
 
     device.add_entity(server)
+    device.add_entity(web_server)
     
     device.add_entity(
         BinarySensorEntity(
@@ -56,7 +64,10 @@ async def run_server():
             entity_id="test_esp_switch"
         )
     )
-    
-    await server.run()
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(server.run())
+        tg.create_task(web_server.run())
+
 
 asyncio.run(run_server())

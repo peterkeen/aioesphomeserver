@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from aiohttp import web
+
 from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesSwitchResponse,
     SwitchCommandRequest,
@@ -28,6 +31,18 @@ class SwitchEntity(BasicEntity):
             state = await self.get_state()
         )
 
+    async def state_json(self):
+        state = await self.get_state()
+        state_str = "ON" if state else "OFF"
+
+        data = {
+            "id": f"switch-{self.object_id}",
+            "name": self.name,
+            "state": state_str,
+            "value": state,
+        }
+        return json.dumps(data)
+
     async def get_state(self):
         return self._state
 
@@ -36,6 +51,20 @@ class SwitchEntity(BasicEntity):
         self._state = val
         if val != old_state:
             await self.notify_state_change()
+
+    async def add_routes(self, router):
+        router.add_route("POST", f"/switch/{self.object_id}/turn_on", self.route_turn_on)
+        router.add_route("POST", f"/switch/{self.object_id}/turn_off", self.route_turn_off)
+
+    async def route_turn_off(self, request):
+        await self.set_state(False)
+        data = await self.state_json()
+        return web.Response(text=data)
+
+    async def route_turn_on(self, request):
+        await self.set_state(True)
+        data = await self.state_json()
+        return web.Response(text=data)
 
     async def handle(self, key, message):
         if type(message) == SwitchCommandRequest:

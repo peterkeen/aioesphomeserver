@@ -22,10 +22,16 @@ class BasicEntity:
     async def build_state_response(self):
         pass
 
+    async def state_json(self):
+        pass
+
     async def can_handle(self, key, message):
         return True
 
     async def handle(self, key, message):
+        pass
+
+    async def add_routes(self, router):
         pass
 
     async def notify_state_change(self):

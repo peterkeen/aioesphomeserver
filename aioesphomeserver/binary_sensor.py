@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from . import (
     BasicEntity,
     BinarySensorStateResponse,
@@ -24,6 +26,18 @@ class BinarySensorEntity(BasicEntity):
             key = self.key,
             state = await self.get_state()
         )
+
+    async def state_json(self):
+        state = await self.get_state()
+        state_str = "ON" if state else "OFF"
+
+        data = {
+            "id": f"binary_sensor-{self.object_id}",
+            "name": self.name,
+            "state": state_str,
+            "value": state,
+        }
+        return json.dumps(data)
 
     async def get_state(self):
         return self._state
