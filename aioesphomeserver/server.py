@@ -22,6 +22,8 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
     ListEntitiesRequest,
     ListEntitiesDoneResponse,
     SubscribeStatesRequest,
+    SubscribeHomeassistantServicesRequest,
+    SubscribeHomeAssistantStatesRequest,
 )
 
 from aioesphomeapi.core import (
@@ -50,6 +52,8 @@ class Connection:
         self.server = server
         self.reader = reader
         self.writer = writer
+        self.subscribe_to_logs = False
+        self.subscribe_to_states = False
 
     async def start(self):
         while True:
@@ -75,6 +79,8 @@ class Connection:
             await self.handle_ping(msg)
         elif type(msg) == DeviceInfoRequest:
             await self.handle_device_info(msg)
+        elif type(msg) == SubscribeStatesRequest:
+            await self.handle_subscribe_states(msg)
         else:
             await self.server.handle_message(self, msg)
 
@@ -108,6 +114,11 @@ class Connection:
         resp.message = b'Subscribed to logs'
 
         await self.write_message(resp)
+
+    async def handle_subscribe_states(self, msg):
+        self.subscribe_to_states = True
+        await self.server.log("Subscribed to states")
+        await self.server.send_all_states(self)
 
     async def handle_ping(self, msg):
         resp = PingResponse()
@@ -170,8 +181,15 @@ class Server:
         self._clients = set()
         self._entities = []
 
-    def add_entity(entity):
+    def add_entity(self, entity):
+        entity.server = self
         self._entities.append(entity)
+
+    def get_entity(self, object_id):
+        for entity in self._entities:
+            if entity.object_id == object_id:
+                return entity
+        return None
 
     async def run(self):
         server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053)
@@ -182,7 +200,8 @@ class Server:
     async def log(self, message):
         print(message)
         for client in self._clients:
-            await client.log(message)
+            if client.subscribe_to_logs:
+                await client.log(message)
 
     async def handle_client(self, reader, writer):
         connection = Connection(self, reader, writer)
@@ -191,20 +210,41 @@ class Server:
         task.add_done_callback(self._clients.discard)
 
     async def handle_message(self, client, message):
-        if type(msg) == ListEntitiesMessage:
+        if type(message) == ListEntitiesRequest:
             await self.handle_list_entities(client, message)
+        elif type(message) == SubscribeHomeassistantServicesRequest:
+            pass
+        elif type(message) == SubscribeHomeAssistantStatesRequest:
+            pass
         else:
-          for entity in self._entities:
-              if await entity.can_handle(message):
-                  entity.handle(client, message)
+            if hasattr(message, 'key'):
+                entity = self._entities[message.key]
+                await entity.handle(message)
+            else:
+                print(f"Unknown message: {message}")
 
     async def handle_list_entities(self, client, message):
-        # loop through the entities, then...
+        for i in range(len(self._entities)):
+            entity = self._entities[i]
+            msg = await entity.build_list_entities_response()
+            msg.key = i
+            await client.write_message(msg)
+
         done_msg = ListEntitiesDoneResponse()
         await client.write_message(done_msg)
 
-async def run_server():
-    server = Server()
-    await server.run()
+    async def send_all_states(self, client):
+        for i in range(len(self._entities)):
+            entity = self._entities[i]
+            msg = await entity.build_state_response()
+            msg.key = i
+            await client.write_message(msg)
 
-asyncio.run(run_server())
+    async def notify_state_change(self, entity):
+        msg = await entity.build_state_response()
+        msg.key = self._entities.index(entity)
+
+        for client in self._clients:
+            if client.subscribe_to_states:
+                await client.write_message(msg)
+
