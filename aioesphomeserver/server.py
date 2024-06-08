@@ -4,30 +4,28 @@ import asyncio
 import socket
 import logging
 
-from aioesphomeapi.api_pb2 import (  # type: ignore
+from . import (  # type: ignore
+    BasicEntity,
     ConnectRequest,
     ConnectResponse,
+    DeviceInfoRequest,
+    DeviceInfoResponse,
     DisconnectRequest,
     DisconnectResponse,
     GetTimeRequest,
     GetTimeResponse,
     HelloRequest,
     HelloResponse,
+    ListEntitiesDoneResponse,
+    ListEntitiesRequest,
+    MESSAGE_TYPE_TO_PROTO,
     PingRequest,
     PingResponse,
+    SubscribeHomeAssistantStatesRequest,
+    SubscribeHomeassistantServicesRequest,
     SubscribeLogsRequest,
     SubscribeLogsResponse,
-    DeviceInfoRequest,
-    DeviceInfoResponse,
-    ListEntitiesRequest,
-    ListEntitiesDoneResponse,
     SubscribeStatesRequest,
-    SubscribeHomeassistantServicesRequest,
-    SubscribeHomeAssistantStatesRequest,
-)
-
-from aioesphomeapi.core import (
-    MESSAGE_TYPE_TO_PROTO,
 )
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
@@ -77,12 +75,10 @@ class Connection:
             await self.handle_subscribe_logs(msg)
         elif type(msg) == PingRequest:
             await self.handle_ping(msg)
-        elif type(msg) == DeviceInfoRequest:
-            await self.handle_device_info(msg)
         elif type(msg) == SubscribeStatesRequest:
             await self.handle_subscribe_states(msg)
         else:
-            await self.server.handle_message(self, msg)
+            await self.server.handle_client_request(self, msg)
 
     async def handle_hello(self, msg):
         resp = HelloResponse(api_version_major=1, api_version_minor=10)
@@ -96,15 +92,9 @@ class Connection:
         resp = DisconnectResponse()
         await self.write_message(resp)
         self.writer.close()
+        self.reader.close()
+        await self.reader.wait_closed()
         await self.writer.wait_closed()
-
-    async def handle_device_info(self, msg):
-        resp = DeviceInfoResponse(
-            uses_password = False,
-            name = "Test Server",
-            mac_address = "AC:BC:32:89:0E:A9",
-        )
-        await self.write_message(resp)
 
     async def handle_subscribe_logs(self, msg):
         self.subscribe_to_logs = True
@@ -147,6 +137,9 @@ class Connection:
         return msg
 
     async def write_message(self, msg):
+        if msg == None:
+            return
+
         print(type(msg), msg)
         out: list[bytes] = []
         type_: int = PROTO_TO_MESSAGE_TYPE[type(msg)]
@@ -176,20 +169,10 @@ class Connection:
             bitpos += 7
         return -1
 
-class Server:
-    def __init__(self):
+class Server(BasicEntity):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._clients = set()
-        self._entities = []
-
-    def add_entity(self, entity):
-        entity.server = self
-        self._entities.append(entity)
-
-    def get_entity(self, object_id):
-        for entity in self._entities:
-            if entity.object_id == object_id:
-                return entity
-        return None
 
     async def run(self):
         server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053)
@@ -209,42 +192,44 @@ class Server:
         task = asyncio.create_task(connection.start())
         task.add_done_callback(self._clients.discard)
 
-    async def handle_message(self, client, message):
-        if type(message) == ListEntitiesRequest:
-            await self.handle_list_entities(client, message)
-        elif type(message) == SubscribeHomeassistantServicesRequest:
+    async def handle_client_request(self, client, message):
+        if type(message) == SubscribeHomeassistantServicesRequest:
             pass
         elif type(message) == SubscribeHomeAssistantStatesRequest:
             pass
+        elif type(message) == ListEntitiesRequest:
+            print("LIST ENTITIES REQUEST")
+            await self.handle_list_entities(client, message)
+        elif type(message) == DeviceInfoRequest:
+            print("DEVICE INFO REQUEST")
+            await self.handle_device_info(client)
         else:
-            if hasattr(message, 'key'):
-                entity = self._entities[message.key]
-                await entity.handle(message)
-            else:
-                print(f"Unknown message: {message}")
+            await self.device.publish(self, 'client_request', message)
 
     async def handle_list_entities(self, client, message):
-        for i in range(len(self._entities)):
-            entity = self._entities[i]
+        for entity in self.device.entities:
             msg = await entity.build_list_entities_response()
-            msg.key = i
-            await client.write_message(msg)
+            if msg != None:
+                await client.write_message(msg)
 
         done_msg = ListEntitiesDoneResponse()
         await client.write_message(done_msg)
 
+    async def handle_device_info(self, client):
+        msg = await self.device.build_device_info_response()
+        await client.write_message(msg)
+
     async def send_all_states(self, client):
-        for i in range(len(self._entities)):
-            entity = self._entities[i]
+        for entity in self.device.entities:
             msg = await entity.build_state_response()
-            msg.key = i
+            if msg == None:
+                next
             await client.write_message(msg)
 
-    async def notify_state_change(self, entity):
-        msg = await entity.build_state_response()
-        msg.key = self._entities.index(entity)
+    async def handle(self, key, message):
+        if key == 'state_change':
+            for client in self._clients:
+                if client.subscribe_to_states:
+                    await client.write_message(message)
 
-        for client in self._clients:
-            if client.subscribe_to_states:
-                await client.write_message(msg)
 
