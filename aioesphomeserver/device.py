@@ -38,6 +38,9 @@ class Device:
             mac_address = self.mac_address,
         )
 
+    async def log(self, level, message):
+        await self.publish(None, 'log', (level, message))
+
     async def publish(self, publisher, key, message):
         for entity in self.entities:
             if publisher == entity:

@@ -23,9 +23,11 @@ class WebServer(BasicEntity):
             data = await entity.state_json()
             await self.queue.put(("state", data))
 
+        if key == "log":
+            await self.queue.put(("log", message))
+
     async def events(self, request):
         async with sse_response(request) as resp:
-            print(resp.headers)
             for entity in self.device.entities:
                 data = await entity.state_json()
                 if data != None:
@@ -33,7 +35,12 @@ class WebServer(BasicEntity):
 
             while resp.is_connected():
                 event, data = await self.queue.get()
-                await resp.send(data, event="state")
+                if event == "log":
+                    level = data[0]
+                    message = data[1]
+                    data = f"[{level}] {message}"
+
+                await resp.send(data, event=event)
 
         return resp
 

@@ -98,7 +98,7 @@ class NativeApiConnection:
 
     async def handle_subscribe_logs(self, msg):
         self.subscribe_to_logs = True
-        
+
         resp = SubscribeLogsResponse()
         resp.level = msg.level
         resp.message = b'Subscribed to logs'
@@ -152,7 +152,7 @@ class NativeApiConnection:
         out.append(data)
 
         self.writer.write(b"".join(out))
-        await self.writer.drain()        
+        await self.writer.drain()
 
     async def _read_varuint(self):
         result = 0
@@ -235,4 +235,12 @@ class NativeApiServer(BasicEntity):
                 if client.subscribe_to_states:
                     await client.write_message(message)
 
+        if key == 'log':
+            msg = SubscribeLogsResponse(
+                level = message[0],
+                message = str.encode(message[1])
+            )
 
+            for client in self._clients:
+                if client.subscribe_to_logs:
+                    await client.write_message(message)

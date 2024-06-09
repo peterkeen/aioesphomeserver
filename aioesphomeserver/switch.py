@@ -31,6 +31,15 @@ class SwitchEntity(BasicEntity):
             state = await self.get_state()
         )
 
+    async def get_state(self):
+        return self._state
+
+    async def set_state(self, val):
+        old_state = self._state
+        self._state = val
+        if val != old_state:
+            await self.notify_state_change()
+
     async def state_json(self):
         state = await self.get_state()
         state_str = "ON" if state else "OFF"
@@ -42,15 +51,6 @@ class SwitchEntity(BasicEntity):
             "value": state,
         }
         return json.dumps(data)
-
-    async def get_state(self):
-        return self._state
-
-    async def set_state(self, val):
-        old_state = self._state
-        self._state = val
-        if val != old_state:
-            await self.notify_state_change()
 
     async def add_routes(self, router):
         router.add_route("POST", f"/switch/{self.object_id}/turn_on", self.route_turn_on)

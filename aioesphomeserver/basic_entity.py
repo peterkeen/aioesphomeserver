@@ -7,7 +7,6 @@ class BasicEntity:
         self.object_id = object_id
         self.name = name
         self.unique_id = unique_id
-
         self._state = False
 
     def set_device(self, device):
