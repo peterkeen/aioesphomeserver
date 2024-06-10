@@ -40,7 +40,10 @@ class WebServer(BasicEntity):
                     message = data[1]
                     data = f"[{level}] {message}"
 
-                await resp.send(data, event=event)
+                try:
+                    await resp.send(data, event=event)
+                except ConnectionResetError:
+                    break
 
         return resp
 
