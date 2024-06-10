@@ -22,6 +22,12 @@ class LightEntity(BasicEntity):
         self.effect = None
         self.state = False
         self.brightness = 1.0
+        self.color_brightness = 1.0
+        self.color_temperature = 1.0
+        self.cold_white = 1.0
+        self.warm_white = 1.0
+        self.transition_length = 0
+        self.flash_length = 0
         self.color_mode = color_modes[0]
         self.red = 1.0
         self.green = 1.0
@@ -43,13 +49,17 @@ class LightEntity(BasicEntity):
             key=self.key,
             state=self.state,
             brightness=self.brightness,
-            color_brightness=self.brightness,
-            color_mode=self.color_mode,
-            effect=self.effect,
+            color_mode=self.color_mode,            
+            color_brightness=self.color_brightness,
             red=self.red,
             green=self.green,
             blue=self.blue,
             white=self.white,
+            color_temperature=self.color_temperature,            
+            cold_white=self.cold_white,
+            warm_white=self.warm_white,
+            effect=self.effect,
+            
         )
 
     async def state_json(self):
@@ -97,7 +107,7 @@ class LightEntity(BasicEntity):
         #   bool has_cold_white = 24;
         #   float cold_white = 25;
         #   bool has_warm_white = 26;
-        #   float warm_white = 27;
+        #   float warm_white = 27;p
         #   bool has_transition_length = 14;
         #   uint32 transition_length = 15;
         #   bool has_flash_length = 16;
@@ -107,7 +117,7 @@ class LightEntity(BasicEntity):
         # }
 
         changed = False
-        for prop in ['state', 'brightness', 'white', 'effect']:
+        for prop in ['state', 'brightness', 'white', 'effect', 'color_brightness', 'color_temperature', 'cold_white', 'warm_white', 'transition_length', 'flash_length']:
             has_prop = f"has_{prop}"
             if hasattr(command, has_prop) and getattr(command, has_prop):
                 attr = getattr(command, prop)
