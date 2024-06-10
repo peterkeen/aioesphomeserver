@@ -137,7 +137,17 @@ class LightEntity(BasicEntity):
 
     async def add_routes(self, router):
         router.add_route("GET", f"/light/{self.object_id}", self.route_get_state)
+        router.add_route("POST", f"/light/{self.object_id}/turn_on", self.route_turn_on)
+        router.add_route("POST", f"/light/{self.object_id}/turn_off", self.route_turn_off)
 
     async def route_get_state(self, request):
+        data = await self.state_json()
+        return web.Response(text=data)
+
+    async def route_turn_on(self, request):
+        data = await self.state_json()
+        return web.Response(text=data)
+
+    async def route_turn_off(self, request):
         data = await self.state_json()
         return web.Response(text=data)
