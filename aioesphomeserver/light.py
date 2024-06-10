@@ -2,6 +2,8 @@ from . import BasicEntity, ListEntitiesLightResponse, LightStateResponse, LightC
 
 from operator import ior
 from functools import reduce
+from aiohttp import web
+from urllib import parse
 
 import json
 from aioesphomeapi import (
@@ -130,6 +132,38 @@ class LightEntity(BasicEntity):
         if changed:
             await self.notify_state_change()
 
+    async def set_state_from_query(self, state, query):
+        # brightness: The brightness of the light, from 0 to 255.
+        # r: The red color channel of the light, from 0 to 255.
+        # g: The green color channel of the light, from 0 to 255.
+        # b: The blue color channel of the light, from 0 to 255.
+        # white_value: The white channel of RGBW lights, from 0 to 255.
+        # flash: Flash the color provided by the other properties for a duration in seconds.
+        # transition: Transition to the specified color values in this duration in seconds.
+        # effect: Set an effect for the light.
+        # color_temp: Set the color temperature of the light, in mireds.
+        cmd = LightCommandRequest(
+            has_state=True,
+            state=state
+        )
+
+        for prop in ['effect']:
+            if prop in query:
+                setattr(cmd, f"has_{prop}", True)
+                setattr(cmd, prop, query[prop][0])
+
+        for prop in ['brightness', 'white_value']:
+            if prop in query:
+                setattr(cmd, f"has_{prop}", True)
+                setattr(cmd, prop, float(query[prop][0]) / 255.0)
+
+        for short_color, color in [('r', 'red'), ('g', 'green'), ('b', 'blue')]:
+            if short_color in query:
+                cmd.has_rgb = True
+                setattr(cmd, color, float(query[short_color][0]) / 255.0)
+
+        await self.set_state_from_command(cmd)
+
     async def handle(self, key, message):
         if type(message) == LightCommandRequest:
             if message.key == self.key:
@@ -145,9 +179,15 @@ class LightEntity(BasicEntity):
         return web.Response(text=data)
 
     async def route_turn_on(self, request):
+        query = parse.parse_qs(request.query_string)
+        await self.set_state_from_query(True, query)
+
         data = await self.state_json()
         return web.Response(text=data)
 
     async def route_turn_off(self, request):
+        query = parse.parse_qs(request.query_string)
+        await self.set_state_from_query(False, query)
+
         data = await self.state_json()
         return web.Response(text=data)

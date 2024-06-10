@@ -99,7 +99,7 @@ than a small microcontroller there are more possibilities, like using Wireguard 
 
 In rough priority order:
 
-* [ ] Finish Light web API
+* [x] Finish Light web API
 * [ ] Configurable ports and listening IPs
 * [ ] Button
 * [ ] Sensor
