@@ -12,6 +12,8 @@ from aioesphomeapi.api_pb2 import (  # type: ignore
 from .basic_entity import BasicEntity
 
 class SwitchEntity(BasicEntity):
+    DOMAIN = "switch"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -45,11 +47,12 @@ class SwitchEntity(BasicEntity):
         state_str = "ON" if state else "OFF"
 
         data = {
-            "id": f"switch-{self.object_id}",
+            "id": self.json_id,
             "name": self.name,
             "state": state_str,
             "value": state,
         }
+        print(data)
         return json.dumps(data)
 
     async def add_routes(self, router):

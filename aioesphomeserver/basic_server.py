@@ -8,7 +8,10 @@ from . import (
     SwitchEntity, 
     SwitchStateResponse,
     WebServer,
+    LightEntity,
 )
+
+from aioesphomeapi import LightColorCapability
 
 class SwitchListener(EntityListener):
     async def handle(self, key, message):
@@ -19,19 +22,15 @@ class SwitchListener(EntityListener):
 async def run_server():
     server = NativeApiServer(
         name="_server",
-        unique_id="_server",
-        object_id="_server"
     )
 
     web_server = WebServer(
         name="_web_server",
-        unique_id="_web_server",
-        object_id="_web_server",
     )
 
     device = Device(
         name = "Test Device",
-        mac_address = "AC:BC:32:89:0E:B9",
+        mac_address = "AC:BC:32:89:0E:C9",
         model = "Test Device",
         project_name = "aioesphomeserver",
         project_version = "1.0.0",
@@ -42,26 +41,28 @@ async def run_server():
     
     device.add_entity(
         BinarySensorEntity(
-            object_id = "test_esp_binary_sensor",
-            name = "Test Sensor",
-            unique_id = "test_esp_binary_sensor"
+            name = "Test Binary Sensor",
         )
     )
 
     device.add_entity(
         SwitchEntity(
-            object_id = "test_esp_switch",
             name = "Test Switch",
-            unique_id = "test_esp_switch"
         )
     )
     
     device.add_entity(
         SwitchListener(
             name="_listener", 
-            unique_id="_listener", 
-            object_id="_listener",
             entity_id="test_esp_switch"
+        )
+    )
+
+    device.add_entity(
+        LightEntity(
+            name = "Text Light",
+            effects = ["None", "Foo", "Bar", "Sparkle"],
+            color_modes = [LightColorCapability.ON_OFF | LightColorCapability.BRIGHTNESS | LightColorCapability.RGB | LightColorCapability.WHITE],
         )
     )
 

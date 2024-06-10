@@ -9,6 +9,8 @@ from . import (
 )
 
 class BinarySensorEntity(BasicEntity):
+    DOMAIN = "binary_sensor"
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._state = False
@@ -32,11 +34,12 @@ class BinarySensorEntity(BasicEntity):
         state_str = "ON" if state else "OFF"
 
         data = {
-            "id": f"binary_sensor-{self.object_id}",
+            "id": self.json_id,
             "name": self.name,
             "state": state_str,
             "value": state,
         }
+        print(data)
         return json.dumps(data)
 
     async def get_state(self):

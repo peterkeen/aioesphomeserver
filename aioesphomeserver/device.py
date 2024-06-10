@@ -51,6 +51,11 @@ class Device:
     def add_entity(self, entity):
         entity.device = self
         entity.key = len(self.entities) + 1
+
+        existing_entity = [e for e in self.entities if e.object_id == entity.object_id]
+        if len(existing_entity) > 0:
+            raise ValueError(f"Duplicate object_id: {entity.object_id}")
+
         self.entities.append(entity)
 
     def get_entity(self, object_id):

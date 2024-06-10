@@ -92,8 +92,6 @@ class NativeApiConnection:
         resp = DisconnectResponse()
         await self.write_message(resp)
         self.writer.close()
-        self.reader.close()
-        await self.reader.wait_closed()
         await self.writer.wait_closed()
 
     async def handle_subscribe_logs(self, msg):
@@ -175,7 +173,7 @@ class NativeApiServer(BasicEntity):
         self._clients = set()
 
     async def run(self):
-        server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053)
+        server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053, reuse_port=True)
         async with server:
             print("starting!")
             await server.start_serving()

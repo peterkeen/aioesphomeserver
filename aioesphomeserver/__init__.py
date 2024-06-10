@@ -10,4 +10,5 @@ from .listener import *
 from .native_api_server import *
 from .switch import *
 from .web_server import *
+from .light import *
 
