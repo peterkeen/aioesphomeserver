@@ -91,6 +91,10 @@ have direct access to other entities as well as the ability to publish internal 
 
 _This is alpha quality at best._ Expect bugs, both striking and subtle. Use at your own risk.
 
+`aioesphomeserver` currently only supports the plaintext (i.e. non-encrypted) ESPHome native protocol.
+Adding the encrypted protocol is possible but because "devices" implemented with this library run on a general purpose machine rather 
+than a small microcontroller there are more possibilities, like using Wireguard or Tailscale.
+
 ## TODO
 
 In rough priority order:
