@@ -13,51 +13,32 @@ Allow your Python program to show up to Home Assistant as an ESPHome device.
   - Switch
   - Binary sensor
   - Light (no web API yet)
-  
+
 ## Usage
 
 ```python
 import asyncio
 
 from aioesphomeserver import (
-    Device, 
-    NativeApiServer,
-    SwitchEntity, 
-    WebServer,
+    Device,
+    SwitchEntity,
 )
-                
-async def run_server():
-    server = NativeApiServer(
-        name="_server",
+
+device = Device(
+    name = "Test Device",
+    mac_address = "AC:BC:32:89:0E:C9",
+    model = "Test Device",
+    project_name = "aioesphomeserver",
+    project_version = "1.0.0",
+)
+
+device.add_entity(
+    SwitchEntity(
+        name = "Test Switch",
     )
+)
 
-    web_server = WebServer(
-        name="_web_server",
-    )
-
-    device = Device(
-        name = "Test Device",
-        mac_address = "AC:BC:32:89:0E:C9",
-        model = "Test Device",
-        project_name = "aioesphomeserver",
-        project_version = "1.0.0",
-    )
-
-    device.add_entity(server)
-    device.add_entity(web_server)
-    
-    device.add_entity(
-        SwitchEntity(
-            name = "Test Switch",
-        )
-    )
-
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(server.run())
-        tg.create_task(web_server.run())
-
-
-asyncio.run(run_server())
+asyncio.run(device.run())
 ```
 
 Now you can visit `localhost:8080` to view the web interface or add your device to Home Assistant through the ESPHome integration.
@@ -76,12 +57,14 @@ class MyCoolListener(ListenerEntity):
 
     async def modify_something(self, value):
         self.device.get_entity(self.entity_id).set_some_value(value)
-        
-async def run_server():
-    #...
 
-    listener = MyListener(name="some cool listener", entity_id="whatever_thing")
-    device.add_entity(listener)
+#...
+device.add_entity(
+    MyListener(
+        name="some cool listener",
+        entity_id="whatever_thing"
+    )
+)
 ```
 
 You can define methods on your listener to talk to other entities or you can retain a reference to `device` where you
@@ -92,7 +75,7 @@ have direct access to other entities as well as the ability to publish internal 
 _This is alpha quality at best._ Expect bugs, both striking and subtle. Use at your own risk.
 
 `aioesphomeserver` currently only supports the plaintext (i.e. non-encrypted) ESPHome native protocol.
-Adding the encrypted protocol is possible but because "devices" implemented with this library run on a general purpose machine rather 
+Adding the encrypted protocol is possible but because "devices" implemented with this library run on a general purpose machine rather
 than a small microcontroller there are more possibilities, like using Wireguard or Tailscale.
 
 ## TODO
@@ -118,4 +101,3 @@ In rough priority order:
 * [ ] Siren
 * [ ] Alarm control panel
 * [ ] Camera
-

@@ -3,15 +3,17 @@ from . import (  # type: ignore
     DeviceInfoResponse,
 )
 
+import asyncio
+
 class Device:
     def __init__(
             self,
             name,
-            mac_address=None, 
-            model=None, 
-            project_name=None, 
-            project_version=None, 
-            manufacturer="aioesphomeserver", 
+            mac_address=None,
+            model=None,
+            project_name=None,
+            project_version=None,
+            manufacturer="aioesphomeserver",
             friendly_name=None,
             suggested_area=None
     ):
@@ -29,7 +31,7 @@ class Device:
         # https://stackoverflow.com/a/43546406
         return "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
                                             random.randint(0, 255),
-                                            random.randint(0, 255))        
+                                            random.randint(0, 255))
 
     async def build_device_info_response(self):
         return DeviceInfoResponse(
@@ -63,8 +65,19 @@ class Device:
             if entity.object_id == object_id:
                 return entity
         return None
-        
+
     def get_entity_by_key(self, key):
         if key > len(self.entities):
             return None
         return self.entities[key - 1]
+
+    async def run(self):
+        from . import NativeApiServer, WebServer
+
+        self.add_entity(NativeApiServer(name="_server"))
+        self.add_entity(WebServer(name="_web_server"))
+
+        async with asyncio.TaskGroup() as tg:
+            for entity in self.entities:
+                if hasattr(entity, 'run'):
+                    tg.create_task(entity.run())

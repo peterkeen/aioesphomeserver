@@ -1,11 +1,11 @@
 import asyncio
 
 from . import (
-    BinarySensorEntity, 
-    Device, 
+    BinarySensorEntity,
+    Device,
     EntityListener,
     NativeApiServer,
-    SwitchEntity, 
+    SwitchEntity,
     SwitchStateResponse,
     WebServer,
     LightEntity,
@@ -15,19 +15,11 @@ from aioesphomeapi import LightColorCapability
 
 class SwitchListener(EntityListener):
     async def handle(self, key, message):
-        sensor = self.device.get_entity("test_esp_binary_sensor")
+        sensor = self.device.get_entity("test_binary_sensor")
         if sensor != None:
             await sensor.set_state(message.state)
-                
-async def run_server():
-    server = NativeApiServer(
-        name="_server",
-    )
 
-    web_server = WebServer(
-        name="_web_server",
-    )
-
+if __name__ == "__main__":
     device = Device(
         name = "Test Device",
         mac_address = "AC:BC:32:89:0E:C9",
@@ -36,9 +28,6 @@ async def run_server():
         project_version = "1.0.0",
     )
 
-    device.add_entity(server)
-    device.add_entity(web_server)
-    
     device.add_entity(
         BinarySensorEntity(
             name = "Test Binary Sensor",
@@ -50,11 +39,11 @@ async def run_server():
             name = "Test Switch",
         )
     )
-    
+
     device.add_entity(
         SwitchListener(
-            name="_listener", 
-            entity_id="test_esp_switch"
+            name="_listener",
+            entity_id="test_switch"
         )
     )
 
@@ -66,9 +55,4 @@ async def run_server():
         )
     )
 
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(server.run())
-        tg.create_task(web_server.run())
-
-
-asyncio.run(run_server())
+    asyncio.run(device.run())
