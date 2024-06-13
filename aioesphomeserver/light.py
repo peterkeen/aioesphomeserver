@@ -123,6 +123,7 @@ class LightEntity(BasicEntity):
                 attr = getattr(command, prop)
                 current_attr = getattr(self, prop)
                 if attr != current_attr:
+                    await self.device.log(1, f"Setting {prop} to {attr}")
                     setattr(self, prop, attr)
                     changed = True
 

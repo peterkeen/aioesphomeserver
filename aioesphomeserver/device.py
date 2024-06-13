@@ -4,6 +4,7 @@ from . import (  # type: ignore
 )
 
 import asyncio
+import datetime
 
 class Device:
     def __init__(
@@ -41,6 +42,7 @@ class Device:
         )
 
     async def log(self, level, message):
+        print(f"[{datetime.datetime.now()}]({level}) {message}")
         await self.publish(None, 'log', (level, message))
 
     async def publish(self, publisher, key, message):
