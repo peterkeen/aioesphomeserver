@@ -50,7 +50,7 @@ if __name__ == "__main__":
     device.add_entity(
         LightEntity(
             name = "Text Light",
-            effects = ["None", "Foo", "Bar", "Sparkle"],
+            effects = ["Foo", "Bar", "Sparkle"],
             color_modes = [LightColorCapability.ON_OFF | LightColorCapability.BRIGHTNESS | LightColorCapability.RGB | LightColorCapability.WHITE],
         )
     )

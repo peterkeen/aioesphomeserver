@@ -13,13 +13,17 @@ from aioesphomeapi import (
 class LightEntity(BasicEntity):
     DOMAIN = "light"
 
-    def __init__(self, *args, color_modes=[LightColorCapability.ON_OFF], effects=[], **kwargs):
+    def __init__(self, *args, color_modes=[LightColorCapability.ON_OFF], effects=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.supported_color_modes = color_modes
-        self.effects = effects
+        if effects == None:
+            self.effects = []
+            self.effect = None
+        else:
+            self.effects = effects
+            self.effect = effects[0]
 
-        self.effect = None
         self.state = False
         self.brightness = 1.0
         self.color_brightness = 1.0
@@ -49,17 +53,17 @@ class LightEntity(BasicEntity):
             key=self.key,
             state=self.state,
             brightness=self.brightness,
-            color_mode=self.color_mode,            
+            color_mode=self.color_mode,
             color_brightness=self.color_brightness,
             red=self.red,
             green=self.green,
             blue=self.blue,
             white=self.white,
-            color_temperature=self.color_temperature,            
+            color_temperature=self.color_temperature,
             cold_white=self.cold_white,
             warm_white=self.warm_white,
             effect=self.effect,
-            
+
         )
 
     async def state_json(self):
