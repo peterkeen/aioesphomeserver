@@ -85,7 +85,7 @@ In rough priority order:
 * [x] Finish Light web API
 * [ ] Configurable ports and listening IPs
 * [ ] Button
-* [ ] Sensor
+* [x] Sensor
 * [ ] Cover
 * [ ] Zeroconf
 * [ ] Fan
