@@ -138,7 +138,6 @@ class NativeApiConnection:
         if msg == None:
             return
 
-        print(type(msg), msg)
         out: list[bytes] = []
         type_: int = PROTO_TO_MESSAGE_TYPE[type(msg)]
         data = msg.SerializeToString()
@@ -175,14 +174,13 @@ class NativeApiServer(BasicEntity):
     async def run(self):
         server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053, reuse_port=True)
         async with server:
-            print("starting!")
+            await self.device.log(2, "api", "starting!")
             await server.start_serving()
 
             while True:
                 await asyncio.sleep(3600)
 
     async def log(self, message):
-        print(message)
         for client in self._clients:
             if client.subscribe_to_logs:
                 await client.log(message)
@@ -199,10 +197,8 @@ class NativeApiServer(BasicEntity):
         elif type(message) == SubscribeHomeAssistantStatesRequest:
             pass
         elif type(message) == ListEntitiesRequest:
-            print("LIST ENTITIES REQUEST")
             await self.handle_list_entities(client, message)
         elif type(message) == DeviceInfoRequest:
-            print("DEVICE INFO REQUEST")
             await self.handle_device_info(client)
         else:
             await self.device.publish(self, 'client_request', message)

@@ -30,7 +30,6 @@ class BasicEntity:
             obj_id = re.sub(r"\s+", "_", obj_id)
             obj_id = re.sub(r"[^\w]", "", obj_id)
             self._assigned_object_id = obj_id
-            print(obj_id)
             return obj_id
 
     @property
@@ -45,7 +44,6 @@ class BasicEntity:
             m.update(self.DOMAIN.encode())
             uid = m.hexdigest()[0:16]
             self._assigned_unique_id = uid
-            print(uid)
             return uid
 
     @property

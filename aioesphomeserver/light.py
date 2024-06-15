@@ -82,7 +82,6 @@ class LightEntity(BasicEntity):
             "effect": self.effect,
             "white_value": self.white
         }
-        print(data)
         return json.dumps(data)
 
     async def set_state_from_command(self, command):

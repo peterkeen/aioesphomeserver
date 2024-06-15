@@ -39,7 +39,6 @@ class BinarySensorEntity(BasicEntity):
             "state": state_str,
             "value": state,
         }
-        print(data)
         return json.dumps(data)
 
     async def get_state(self):

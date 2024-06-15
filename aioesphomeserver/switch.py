@@ -53,7 +53,6 @@ class SwitchEntity(BasicEntity):
             "state": state_str,
             "value": state,
         }
-        print(data)
         return json.dumps(data)
 
     async def add_routes(self, router):

@@ -56,6 +56,8 @@ class WebServer(BasicEntity):
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, "0.0.0.0", 8080)
+        await self.device.log(2, "web", "starting!")
+
         await site.start()
 
         while True:
