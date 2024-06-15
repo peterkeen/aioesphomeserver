@@ -3,6 +3,10 @@ from . import (  # type: ignore
     DeviceInfoResponse,
 )
 
+from .logger import format_log
+
+from inspect import getframeinfo, stack
+
 import asyncio
 import datetime
 
@@ -41,9 +45,11 @@ class Device:
             mac_address = self.mac_address,
         )
 
-    async def log(self, level, message):
-        print(f"[{datetime.datetime.now()}]({level}) {message}")
-        await self.publish(None, 'log', (level, message))
+    async def log(self, level, tag, message):
+        caller = getframeinfo(stack()[1][0])
+        formatted_log = format_log(level, tag, caller.lineno, message)
+        print(formatted_log)
+        await self.publish(None, 'log', (level, formatted_log))
 
     async def publish(self, publisher, key, message):
         for entity in self.entities:

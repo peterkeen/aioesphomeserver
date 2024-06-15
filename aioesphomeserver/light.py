@@ -72,12 +72,13 @@ class LightEntity(BasicEntity):
             "id": self.json_id,
             "name": self.name,
             "state": state,
-            "brightness": self.brightness,
+            "brightness": int(self.brightness * 255),
             "color": {
                 "r": self.red,
                 "g": self.green,
                 "b": self.green
             },
+            "effects": self.effects,
             "effect": self.effect,
             "white_value": self.white
         }
@@ -127,7 +128,7 @@ class LightEntity(BasicEntity):
                 attr = getattr(command, prop)
                 current_attr = getattr(self, prop)
                 if attr != current_attr:
-                    await self.device.log(1, f"Setting {prop} to {attr}")
+                    await self.device.log(3, self.DOMAIN, f"[{self.object_id}] Setting {prop} to {attr}")
                     setattr(self, prop, attr)
                     changed = True
 

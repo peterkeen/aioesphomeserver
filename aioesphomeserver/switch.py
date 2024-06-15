@@ -37,6 +37,7 @@ class SwitchEntity(BasicEntity):
         return self._state
 
     async def set_state(self, val):
+        await self.device.log(3, self.DOMAIN, f"[{self.object_id}] Setting state to {val}")
         old_state = self._state
         self._state = val
         if val != old_state:

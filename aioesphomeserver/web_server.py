@@ -36,9 +36,7 @@ class WebServer(BasicEntity):
             while resp.is_connected():
                 event, data = await self.queue.get()
                 if event == "log":
-                    level = data[0]
-                    message = data[1]
-                    data = f"[{level}] {message}"
+                    data = data[1]
 
                 try:
                     await resp.send(data, event=event)
