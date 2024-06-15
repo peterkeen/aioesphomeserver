@@ -46,6 +46,8 @@ class LightEntity(BasicEntity):
             unique_id=self.unique_id,
             supported_color_modes=self.supported_color_modes,
             effects=self.effects,
+            icon=self.icon,
+            entity_category=self.entity_category,
         )
 
     async def build_state_response(self):

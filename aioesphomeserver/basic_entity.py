@@ -5,11 +5,23 @@ import hashlib
 
 class BasicEntity:
     DOMAIN = ""
-    
-    def __init__(self, name, object_id=None, unique_id=None):
+
+    def __init__(
+            self,
+            name,
+            object_id=None,
+            unique_id=None,
+            icon=None,
+            device_class=None,
+            entity_category=None,
+    ):
         self.name = name
         self._assigned_object_id = object_id
         self._assigned_unique_id = unique_id
+        self.icon = icon
+        self.device_class = device_class
+        self.entity_category = entity_category
+
         self.device = None
         self.key = None
 
@@ -70,8 +82,7 @@ class BasicEntity:
 
     async def notify_state_change(self):
         await self.device.publish(
-            self, 
-            'state_change', 
+            self,
+            'state_change',
             await self.build_state_response()
         )
-    

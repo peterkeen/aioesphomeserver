@@ -8,38 +8,47 @@ from . import (
     ListEntitiesBinarySensorResponse,
 )
 
-class BinarySensorEntity(BasicEntity):
-    DOMAIN = "binary_sensor"
+class SensorEntity(BasicEntity):
+    DOMAIN = "sensor"
     
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self,
+            *args,
+            unit_of_measurement=None,
+            accuracy_decimals=None,
+            state_class=None,
+            **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self._state = False
+        self._state = 0.0
 
     async def build_list_entities_response(self):
-        return ListEntitiesBinarySensorResponse(
+        return ListEntitiesSensorResponse(
             object_id = self.object_id,
             name = self.name,
             key = self.key,
             unique_id = self.unique_id,
-            device_class = self.device_class,
             icon = self.icon,
+            unit_of_measurement = self.unit_of_measurement,
+            accuracy_decimals = self.accuracy_decimals,
+            device_class = self.device_class,
+            state_class = self.state_class,
             entity_category = self.entity_category,
         )
 
     async def build_state_response(self):
-        return BinarySensorStateResponse(
+        return SensorStateResponse(
             key = self.key,
             state = await self.get_state()
         )
 
     async def state_json(self):
         state = await self.get_state()
-        state_str = "ON" if state else "OFF"
 
         data = {
             "id": self.json_id,
             "name": self.name,
-            "state": state_str,
+            "state": self.state,
             "value": state,
         }
         return json.dumps(data)

@@ -14,7 +14,12 @@ from .basic_entity import BasicEntity
 class SwitchEntity(BasicEntity):
     DOMAIN = "switch"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self,
+            *args,
+            assumed_state=None,
+            **kwargs
+    ):
         super().__init__(*args, **kwargs)
 
         self._state = False
@@ -25,6 +30,10 @@ class SwitchEntity(BasicEntity):
             key = self.key,
             name = self.name,
             unique_id = self.unique_id,
+            icon = self.icon,
+            entity_category = self.entity_category,
+            device_class = self.device_class,
+            assumed_state = self.assumed_state,
         )
 
     async def build_state_response(self):
