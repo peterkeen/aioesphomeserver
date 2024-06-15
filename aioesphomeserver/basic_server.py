@@ -9,6 +9,7 @@ from . import (
     SwitchStateResponse,
     WebServer,
     LightEntity,
+    SensorEntity,
 )
 
 from aioesphomeapi import LightColorCapability
@@ -37,6 +38,12 @@ if __name__ == "__main__":
     device.add_entity(
         SwitchEntity(
             name = "Test Switch",
+        )
+    )
+
+    device.add_entity(
+        SensorEntity(
+            name = "Test Sensor"
         )
     )
 

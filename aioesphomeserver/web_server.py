@@ -61,4 +61,5 @@ class WebServer(BasicEntity):
         await site.start()
 
         while True:
-            await asyncio.sleep(3600)
+            await asyncio.sleep(1)
+            await self.queue.put(("ping", ""))

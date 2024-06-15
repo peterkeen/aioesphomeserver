@@ -4,13 +4,13 @@ import json
 
 from . import (
     BasicEntity,
-    BinarySensorStateResponse,
-    ListEntitiesBinarySensorResponse,
+    SensorStateResponse,
+    ListEntitiesSensorResponse,
 )
 
 class SensorEntity(BasicEntity):
     DOMAIN = "sensor"
-    
+
     def __init__(
             self,
             *args,
@@ -20,6 +20,9 @@ class SensorEntity(BasicEntity):
             **kwargs
     ):
         super().__init__(*args, **kwargs)
+        self.unit_of_measurement = unit_of_measurement
+        self.accuracy_decimals = accuracy_decimals
+        self.state_class = state_class
         self._state = 0.0
 
     async def build_list_entities_response(self):
@@ -48,8 +51,7 @@ class SensorEntity(BasicEntity):
         data = {
             "id": self.json_id,
             "name": self.name,
-            "state": self.state,
-            "value": state,
+            "state": state,
         }
         return json.dumps(data)
 
@@ -57,6 +59,7 @@ class SensorEntity(BasicEntity):
         return self._state
 
     async def set_state(self, val):
+        await self.device.log(3, self.DOMAIN, f"[{self.object_id}] Setting value to {val}")
         old_state = self._state
         self._state = val
         if val != old_state:

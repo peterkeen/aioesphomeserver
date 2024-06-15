@@ -22,6 +22,7 @@ class SwitchEntity(BasicEntity):
     ):
         super().__init__(*args, **kwargs)
 
+        self.assumed_state = assumed_state
         self._state = False
     
     async def build_list_entities_response(self):
