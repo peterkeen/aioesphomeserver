@@ -7,8 +7,9 @@ from aiohttp_sse import sse_response
 from . import BasicEntity
 
 class WebServer(BasicEntity):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, port=8080, **kwargs):
         super().__init__(*args, **kwargs)
+        self.port = port
         self.queue = asyncio.Queue()
 
     async def index(self, _request):
@@ -55,8 +56,8 @@ class WebServer(BasicEntity):
         
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", 8080)
-        await self.device.log(2, "web", "starting!")
+        site = web.TCPSite(runner, '0.0.0.0', self.port)
+        await self.device.log(2, "web", f"Starting web server on port {self.port}!")
 
         await site.start()
 

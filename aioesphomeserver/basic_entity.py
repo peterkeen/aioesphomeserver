@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 import hashlib
+import socket
+import logging
+from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 class BasicEntity:
     DOMAIN = ""
@@ -86,3 +89,45 @@ class BasicEntity:
             'state_change',
             await self.build_state_response()
         )
+    
+
+    async def register_zeroconf(self, port):
+        logging.info(f"Registering Zeroconf for {self.name} on port {port}")
+        try:
+            zeroconf = AsyncZeroconf()
+            hostname = socket.gethostname()
+            address = socket.gethostbyname(hostname)
+            service_info = AsyncServiceInfo(
+                type_="_esphomelib._tcp.local.",
+                name=f"{self.name}._esphomelib._tcp.local.",
+                addresses=[socket.inet_aton(address)],
+                port=port,
+                properties={
+                    "address": address,
+                    "port": str(port),
+                    "api_version": "1.5.0",
+                    "mac": self.mac_address,
+                    "manufacturer": self.manufacturer,
+                    "model": self.model,
+                    "name": self.name,
+                    "project_name": self.project_name,
+                    "project_version": self.project_version,
+                }
+            )
+            await zeroconf.async_register_service(service_info)
+            logging.info(f"Zeroconf registration successful for {self.name} on port {port}")
+            return zeroconf
+        except Exception as e:
+            logging.error(f"Error registering Zeroconf service for {self.name}: {e}")
+            logging.exception("Exception details:")
+            return None
+
+    async def unregister_zeroconf(self, zeroconf):
+        if zeroconf:
+            service_info = AsyncServiceInfo(
+                type_="_esphomelib._tcp.local.",
+                name=f"{self.device.name}._esphomelib._tcp.local."
+            )
+            await zeroconf.async_unregister_service(service_info)
+            await zeroconf.async_close()
+

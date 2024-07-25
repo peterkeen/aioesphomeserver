@@ -167,14 +167,15 @@ class NativeApiConnection:
         return -1
 
 class NativeApiServer(BasicEntity):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, port=6053, **kwargs):
         super().__init__(*args, **kwargs)
+        self.port = port
         self._clients = set()
 
     async def run(self):
-        server = await asyncio.start_server(self.handle_client, '0.0.0.0', 6053, reuse_port=True)
+        server = await asyncio.start_server(self.handle_client, '0.0.0.0', self.port)
         async with server:
-            await self.device.log(2, "api", "starting!")
+            await self.device.log(2, "api", f"starting on port {self.port}!")
             await server.start_serving()
 
             while True:
