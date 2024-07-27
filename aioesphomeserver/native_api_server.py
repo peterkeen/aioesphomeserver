@@ -30,7 +30,9 @@ from . import (  # type: ignore
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
-def _varuint_to_bytes(value: _int) -> bytes:
+logger = logging.getLogger(__name__)
+
+def _varuint_to_bytes(value: int) -> bytes:
     """Convert a varuint to bytes."""
     if value <= 0x7F:
         return bytes((value,))
@@ -52,33 +54,61 @@ class NativeApiConnection:
         self.writer = writer
         self.subscribe_to_logs = False
         self.subscribe_to_states = False
+        self.running = True
 
     async def start(self):
-        while True:
-            await self.handle_next_message()
+        try:
+            heartbeat_task = asyncio.create_task(self.heartbeat())
+            while self.running:
+                try:
+                    await self.handle_next_message()
+                except ConnectionResetError:
+                    logger.warning("Connection reset. Attempting to reconnect...")
+                    await self.handle_connection_reset()
+                except asyncio.CancelledError:
+                    logger.info("Connection cancelled. Shutting down...")
+                    break
+                except Exception as e:
+                    logger.error(f"Unexpected error in connection: {e}", exc_info=True)
+                    await asyncio.sleep(5)  # Wait before retrying
+        finally:
+            heartbeat_task.cancel()
+
+    async def heartbeat(self):
+        while self.running:
+            try:
+                await self.write_message(PingRequest())
+                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+            except Exception as e:
+                logger.error(f"Heartbeat failed: {e}")
+                await self.handle_connection_reset()
 
     async def handle_next_message(self):
-        msg = await self.read_next_message()
+        try:
+            msg = await self.read_next_message()
 
-        if msg is None:
-            return
+            if msg is None:
+                return
 
-        await self.server.log(f"{type(msg)}: {msg}")
+            await self.server.log(f"{type(msg)}: {msg}")
 
-        if type(msg) == HelloRequest:
-            await self.handle_hello(msg)
-        elif type(msg) == ConnectRequest:
-            await self.handle_connect(msg)
-        elif type(msg) == DisconnectRequest:
-            await self.handle_disconnect(msg)
-        elif type(msg) == SubscribeLogsRequest:
-            await self.handle_subscribe_logs(msg)
-        elif type(msg) == PingRequest:
-            await self.handle_ping(msg)
-        elif type(msg) == SubscribeStatesRequest:
-            await self.handle_subscribe_states(msg)
-        else:
-            await self.server.handle_client_request(self, msg)
+            if type(msg) == HelloRequest:
+                await self.handle_hello(msg)
+            elif type(msg) == ConnectRequest:
+                await self.handle_connect(msg)
+            elif type(msg) == DisconnectRequest:
+                await self.handle_disconnect(msg)
+            elif type(msg) == SubscribeLogsRequest:
+                await self.handle_subscribe_logs(msg)
+            elif type(msg) == PingRequest:
+                await self.handle_ping(msg)
+            elif type(msg) == SubscribeStatesRequest:
+                await self.handle_subscribe_states(msg)
+            else:
+                await self.server.handle_client_request(self, msg)
+        except asyncio.IncompleteReadError:
+            logger.warning("Incomplete read. Connection might be closed.")
+            raise ConnectionResetError
 
     async def handle_hello(self, msg):
         resp = HelloResponse(api_version_major=1, api_version_minor=10)
@@ -91,8 +121,7 @@ class NativeApiConnection:
     async def handle_disconnect(self, msg):
         resp = DisconnectResponse()
         await self.write_message(resp)
-        self.writer.close()
-        await self.writer.wait_closed()
+        await self.stop()
 
     async def handle_subscribe_logs(self, msg):
         self.subscribe_to_logs = True
@@ -135,21 +164,24 @@ class NativeApiConnection:
         return msg
 
     async def write_message(self, msg):
-        if msg == None:
+        if msg is None:
             return
 
-        out: list[bytes] = []
-        type_: int = PROTO_TO_MESSAGE_TYPE[type(msg)]
-        data = msg.SerializeToString()
+        try:
+            out: list[bytes] = []
+            type_: int = PROTO_TO_MESSAGE_TYPE[type(msg)]
+            data = msg.SerializeToString()
 
-        out: list[bytes] = []
-        out.append(b"\0")
-        out.append(_varuint_to_bytes(len(data)))
-        out.append(_varuint_to_bytes(type_))
-        out.append(data)
+            out.append(b"\0")
+            out.append(_varuint_to_bytes(len(data)))
+            out.append(_varuint_to_bytes(type_))
+            out.append(data)
 
-        self.writer.write(b"".join(out))
-        await self.writer.drain()
+            self.writer.write(b"".join(out))
+            await self.writer.drain()
+        except ConnectionResetError:
+            logger.warning("Connection reset while writing message.")
+            raise
 
     async def _read_varuint(self):
         result = 0
@@ -166,20 +198,48 @@ class NativeApiConnection:
             bitpos += 7
         return -1
 
+    async def handle_connection_reset(self):
+        try:
+            self.writer.close()
+            try:
+                await asyncio.wait_for(self.writer.wait_closed(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Timed out waiting for writer to close")
+        except Exception as e:
+            logger.error(f"Error closing writer: {e}")
+
+        await asyncio.sleep(5)  # Wait before attempting to reconnect
+        try:
+            new_reader, new_writer = await asyncio.open_connection(
+                self.server.device.host, self.server.port
+            )
+            self.reader = new_reader
+            self.writer = new_writer
+            logger.info("Reconnected successfully.")
+        except Exception as e:
+            logger.error(f"Failed to reconnect: {e}", exc_info=True)
+
+    async def stop(self):
+        self.running = False
+        self.writer.close()
+        await self.writer.wait_closed()
+
 class NativeApiServer(BasicEntity):
     def __init__(self, *args, port=6053, **kwargs):
         super().__init__(*args, **kwargs)
         self.port = port
         self._clients = set()
+        self.server = None
 
     async def run(self):
-        server = await asyncio.start_server(self.handle_client, '0.0.0.0', self.port)
-        async with server:
+        self.server = await asyncio.start_server(self.handle_client, '0.0.0.0', self.port)
+        clean_task = asyncio.create_task(self.clean_stale_connections())
+        try:
             await self.device.log(2, "api", f"starting on port {self.port}!")
-            await server.start_serving()
-
-            while True:
-                await asyncio.sleep(3600)
+            async with self.server:
+                await self.server.serve_forever()
+        finally:
+            clean_task.cancel()
 
     async def log(self, message):
         for client in self._clients:
@@ -189,8 +249,10 @@ class NativeApiServer(BasicEntity):
     async def handle_client(self, reader, writer):
         connection = NativeApiConnection(self, reader, writer)
         self._clients.add(connection)
-        task = asyncio.create_task(connection.start())
-        task.add_done_callback(self._clients.discard)
+        try:
+            await connection.start()
+        finally:
+            self._clients.remove(connection)
 
     async def handle_client_request(self, client, message):
         if type(message) == SubscribeHomeassistantServicesRequest:
@@ -221,7 +283,7 @@ class NativeApiServer(BasicEntity):
         for entity in self.device.entities:
             msg = await entity.build_state_response()
             if msg == None:
-                next
+                continue
             await client.write_message(msg)
 
     async def handle(self, key, message):
@@ -238,4 +300,23 @@ class NativeApiServer(BasicEntity):
 
             for client in self._clients:
                 if client.subscribe_to_logs:
-                    await client.write_message(message)
+                    await client.write_message(msg)
+
+    async def stop(self):
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+        for client in list(self._clients):
+            await client.stop()
+        self._clients.clear()
+
+    async def restart(self):
+        await self.stop()
+        await self.run()
+
+    async def clean_stale_connections(self):
+        while True:
+            for client in list(self._clients):
+                if client.writer.is_closing():
+                    self._clients.remove(client)
+            await asyncio.sleep(60)  # Run every minute

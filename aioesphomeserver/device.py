@@ -10,8 +10,12 @@ from inspect import getframeinfo, stack
 import asyncio
 import socket
 import re
+import random
+import logging
 from zeroconf.asyncio import AsyncZeroconf
 from zeroconf import ServiceInfo
+
+logger = logging.getLogger(__name__)
 
 class Device:
     def __init__(
@@ -42,9 +46,9 @@ class Device:
         self.entities = []
         self.zeroconf = None
         self.service_info = None
+        self.running = True
 
     def _generate_mac_address(self):
-        # https://stackoverflow.com/a/43546406
         return "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
                                             random.randint(0, 255),
                                             random.randint(0, 255))
@@ -71,14 +75,22 @@ class Device:
         caller = getframeinfo(stack()[1][0])
         formatted_log = format_log(level, tag, caller.lineno, message)
         print(formatted_log)
-        await self.publish(None, 'log', (level, formatted_log))
+        try:
+            await self.publish(None, 'log', (level, formatted_log))
+        except Exception as e:
+            logger.error(f"Error publishing log: {e}", exc_info=True)
 
     async def publish(self, publisher, key, message):
         for entity in self.entities:
             if publisher == entity:
                 continue
-            if await entity.can_handle(key, message):
-                await entity.handle(key, message)
+            try:
+                if await entity.can_handle(key, message):
+                    await entity.handle(key, message)
+            except ConnectionResetError:
+                logger.warning(f"Connection reset while publishing to {entity.name}")
+            except Exception as e:
+                logger.error(f"Error publishing to {entity.name}: {e}", exc_info=True)
 
     def add_entity(self, entity):
         entity.device = self
@@ -110,47 +122,86 @@ class Device:
         self.add_entity(NativeApiServer(name="_server", port=self.api_port))
         self.add_entity(WebServer(name="_web_server", port=self.web_port))
 
-        self.zeroconf = await self.register_zeroconf(self.api_port)
+        while self.running:
+            try:
+                self.zeroconf = await self.register_zeroconf(self.api_port)
 
-        async with asyncio.TaskGroup() as tg:
-            for entity in self.entities:
-                if hasattr(entity, 'run'):
-                    tg.create_task(entity.run())
+                async with asyncio.TaskGroup() as tg:
+                    for entity in self.entities:
+                        if hasattr(entity, 'run'):
+                            tg.create_task(entity.run())
+
+                    tg.create_task(self.heartbeat())
+
+            except ConnectionResetError:
+                logger.warning("Connection reset. Restarting servers in 5 seconds...")
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                logger.info("Device run cancelled. Shutting down...")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error in device run: {e}", exc_info=True)
+                await asyncio.sleep(5)
+
+        await self.shutdown()
+
+    async def heartbeat(self):
+        while self.running:
+            try:
+                for entity in self.entities:
+                    if hasattr(entity, 'check_connection'):
+                        await entity.check_connection()
+                await asyncio.sleep(30)  # Heartbeat every 30 seconds
+            except Exception as e:
+                logger.error(f"Error in heartbeat: {e}", exc_info=True)
+
+    async def shutdown(self):
+        self.running = False
+        for entity in self.entities:
+            if isinstance(entity, NativeApiServer):
+                await entity.stop()
+            elif hasattr(entity, 'stop'):
+                await entity.stop()
+        await self.unregister_zeroconf()
 
     async def register_zeroconf(self, port):
-        zeroconf = AsyncZeroconf()
-        service_type = "_esphomelib._tcp.local."
-        
-        # Replace spaces and other invalid characters with underscores
-        sanitized_name = re.sub(r'[^a-zA-Z0-9]', '_', self.name).lower()
-        
-        service_name = f"{sanitized_name}.{service_type}"
-        ip_address = self._get_ip_address()
-        hostname = f"{sanitized_name}.local."
+        try:
+            zeroconf = AsyncZeroconf()
+            service_type = "_esphomelib._tcp.local."
+            
+            sanitized_name = re.sub(r'[^a-zA-Z0-9]', '_', self.name).lower()
+            
+            service_name = f"{sanitized_name}.{service_type}"
+            ip_address = self._get_ip_address()
+            hostname = f"{sanitized_name}.local."
 
-        service_info = ServiceInfo(
-            service_type,
-            service_name,
-            addresses=[socket.inet_aton(ip_address)],
-            port=port,
-            properties={
-                "network": self.network or "wifi",
-                "board": self.board or "esp01_1m",
-                "platform": self.platform or "ESP8266",
-                "mac": self.mac_address.replace(":", "").lower(),
-                "version": self.project_version,
-                "friendly_name": self.friendly_name or self.name,
-            },
-            server=hostname,
-        )
+            service_info = ServiceInfo(
+                service_type,
+                service_name,
+                addresses=[socket.inet_aton(ip_address)],
+                port=port,
+                properties={
+                    "network": self.network or "wifi",
+                    "board": self.board or "esp01_1m",
+                    "platform": self.platform or "ESP8266",
+                    "mac": self.mac_address.replace(":", "").lower(),
+                    "version": self.project_version,
+                    "friendly_name": self.friendly_name or self.name,
+                },
+                server=hostname,
+            )
 
-        await zeroconf.async_register_service(service_info)
-        self.service_info = service_info
-        self.zeroconf = zeroconf
-
-
+            await zeroconf.async_register_service(service_info)
+            self.service_info = service_info
+            return zeroconf
+        except Exception as e:
+            logger.error(f"Error registering zeroconf: {e}", exc_info=True)
+            return None
 
     async def unregister_zeroconf(self):
         if self.zeroconf and self.service_info:
-            await self.zeroconf.async_unregister_service(self.service_info)
-            await self.zeroconf.async_close()
+            try:
+                await self.zeroconf.async_unregister_service(self.service_info)
+                await self.zeroconf.async_close()
+            except Exception as e:
+                logger.error(f"Error unregistering zeroconf: {e}", exc_info=True)
