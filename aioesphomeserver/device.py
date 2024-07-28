@@ -47,6 +47,8 @@ class Device:
         self.zeroconf = None
         self.service_info = None
         self.running = True
+        self.api_port = None
+        self.web_port = None
 
     def _generate_mac_address(self):
         return "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
@@ -63,6 +65,9 @@ class Device:
         finally:
             s.close()
         return ip_address
+    
+    def get_ip_address(self):
+        return self._get_ip_address()
 
     async def build_device_info_response(self):
         return DeviceInfoResponse(
@@ -158,9 +163,7 @@ class Device:
     async def shutdown(self):
         self.running = False
         for entity in self.entities:
-            if isinstance(entity, NativeApiServer):
-                await entity.stop()
-            elif hasattr(entity, 'stop'):
+            if hasattr(entity, 'stop'):
                 await entity.stop()
         await self.unregister_zeroconf()
 
@@ -187,6 +190,11 @@ class Device:
                     "mac": self.mac_address.replace(":", "").lower(),
                     "version": self.project_version,
                     "friendly_name": self.friendly_name or self.name,
+                    "api_version": "1.5.0",  # Added from BasicEntity
+                    "manufacturer": self.manufacturer,
+                    "model": self.model,
+                    "name": self.name,
+                    "project_name": self.project_name,
                 },
                 server=hostname,
             )

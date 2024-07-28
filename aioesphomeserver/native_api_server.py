@@ -57,28 +57,35 @@ class NativeApiConnection:
         self.running = True
 
     async def start(self):
-        try:
-            heartbeat_task = asyncio.create_task(self.heartbeat())
-            while self.running:
-                try:
+        while self.running:
+            try:
+                heartbeat_task = asyncio.create_task(self.heartbeat())
+                while self.running:
                     await self.handle_next_message()
-                except ConnectionResetError:
-                    logger.warning("Connection reset. Attempting to reconnect...")
-                    await self.handle_connection_reset()
+            except ConnectionResetError:
+                logger.warning("Connection reset. Attempting to reconnect...")
+                await self.handle_connection_reset()
+            except asyncio.CancelledError:
+                logger.info("Connection cancelled. Shutting down...")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error in connection: {e}", exc_info=True)
+                await asyncio.sleep(5)  # Wait before retrying
+            finally:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
                 except asyncio.CancelledError:
-                    logger.info("Connection cancelled. Shutting down...")
-                    break
-                except Exception as e:
-                    logger.error(f"Unexpected error in connection: {e}", exc_info=True)
-                    await asyncio.sleep(5)  # Wait before retrying
-        finally:
-            heartbeat_task.cancel()
+                    pass
 
     async def heartbeat(self):
         while self.running:
             try:
-                await self.write_message(PingRequest())
+                await asyncio.wait_for(self.write_message(PingRequest()), timeout=5.0)
                 await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+            except asyncio.TimeoutError:
+                logger.warning("Heartbeat timed out, attempting to reconnect...")
+                await self.handle_connection_reset()
             except Exception as e:
                 logger.error(f"Heartbeat failed: {e}")
                 await self.handle_connection_reset()
@@ -200,24 +207,29 @@ class NativeApiConnection:
 
     async def handle_connection_reset(self):
         try:
-            self.writer.close()
-            try:
+            if not self.writer.is_closing():
+                self.writer.close()
                 await asyncio.wait_for(self.writer.wait_closed(), timeout=5.0)
-            except asyncio.TimeoutError:
-                logger.warning("Timed out waiting for writer to close")
         except Exception as e:
             logger.error(f"Error closing writer: {e}")
 
         await asyncio.sleep(5)  # Wait before attempting to reconnect
-        try:
-            new_reader, new_writer = await asyncio.open_connection(
-                self.server.device.host, self.server.port
-            )
-            self.reader = new_reader
-            self.writer = new_writer
-            logger.info("Reconnected successfully.")
-        except Exception as e:
-            logger.error(f"Failed to reconnect: {e}", exc_info=True)
+
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                host = self.device.get_ip_address()
+                new_reader, new_writer = await asyncio.open_connection(host, self.port)
+                self.reader = new_reader
+                self.writer = new_writer
+                logger.info("Reconnected successfully.")
+                return
+            except Exception as e:
+                logger.error(f"Reconnection attempt {attempt + 1} failed: {e}")
+                await asyncio.sleep(5 * (attempt + 1))  # Exponential backoff
+
+        logger.error("Failed to reconnect after multiple attempts")
+        self.running = False  # Stop the connection loop
 
     async def stop(self):
         self.running = False
