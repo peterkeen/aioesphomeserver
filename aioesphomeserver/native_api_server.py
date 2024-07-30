@@ -206,30 +206,24 @@ class NativeApiConnection:
         return -1
 
     async def handle_connection_reset(self):
+        logger.info("Connection reset detected. Closing connection.")
+        
+        try:
+            await self.handle_disconnect(DisconnectRequest())
+        except Exception as e:
+            logger.error(f"Error during disconnect handling: {e}", exc_info=True)
+
         try:
             if not self.writer.is_closing():
                 self.writer.close()
                 await asyncio.wait_for(self.writer.wait_closed(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("Timed out waiting for writer to close")
         except Exception as e:
-            logger.error(f"Error closing writer: {e}")
+            logger.error(f"Error closing writer: {e}", exc_info=True)
 
-        await asyncio.sleep(5)  # Wait before attempting to reconnect
-
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                host = self.device.get_ip_address()
-                new_reader, new_writer = await asyncio.open_connection(host, self.port)
-                self.reader = new_reader
-                self.writer = new_writer
-                logger.info("Reconnected successfully.")
-                return
-            except Exception as e:
-                logger.error(f"Reconnection attempt {attempt + 1} failed: {e}")
-                await asyncio.sleep(5 * (attempt + 1))  # Exponential backoff
-
-        logger.error("Failed to reconnect after multiple attempts")
-        self.running = False  # Stop the connection loop
+        # The connection will be removed from self._clients in the clean_stale_connections task
+        self.running = False
 
     async def stop(self):
         self.running = False
