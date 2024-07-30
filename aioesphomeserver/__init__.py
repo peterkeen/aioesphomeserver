@@ -12,3 +12,4 @@ from .switch import *
 from .web_server import *
 from .light import *
 from .sensor import *
+from .climate import *

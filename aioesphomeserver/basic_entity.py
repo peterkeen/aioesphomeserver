@@ -35,7 +35,7 @@ class BasicEntity:
 
     @property
     def object_id(self):
-        if self._assigned_object_id != None:
+        if self._assigned_object_id is not None:
             return self._assigned_object_id
         else:
             obj_id = self.name.lower()
@@ -46,7 +46,7 @@ class BasicEntity:
 
     @property
     def unique_id(self):
-        if self._assigned_unique_id != None:
+        if self._assigned_unique_id is not None:
             return self._assigned_unique_id
         else:
             m = hashlib.sha256()
