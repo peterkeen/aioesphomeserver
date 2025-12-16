@@ -13,3 +13,5 @@ from .web_server import *
 from .light import *
 from .sensor import *
 from .climate import *
+from .text_sensor import *
+from .button import *

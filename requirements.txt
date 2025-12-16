@@ -3,4 +3,3 @@ aiohttp==3.9.5
 aiohttp-sse==2.2.0
 colored==2.2.4
 zeroconf
-socket 

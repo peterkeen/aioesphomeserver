@@ -51,4 +51,5 @@ class BinarySensorEntity(BasicEntity):
         old_state = self._state
         self._state = val
         if val != old_state:
+            await self.device.log(3, self.DOMAIN, f"[{self.object_id}] Setting value to {val}")
             await self.notify_state_change()

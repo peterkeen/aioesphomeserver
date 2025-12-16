@@ -84,7 +84,7 @@ In rough priority order:
 
 * [x] Finish Light web API
 * [ ] Configurable ports and listening IPs
-* [ ] Button
+* [x] Button
 * [x] Sensor
 * [ ] Cover
 * [ ] Zeroconf
@@ -92,7 +92,7 @@ In rough priority order:
 * [ ] Device-defined services
 * [ ] Call HA defined services
 * [ ] Event
-* [ ] TextSensor
+* [x] TextSensor
 * [ ] Number
 * [ ] Select
 * [ ] Date & Time & DateTime
