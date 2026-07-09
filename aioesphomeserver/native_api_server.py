@@ -4,12 +4,10 @@ import asyncio
 import socket
 import logging
 
-from . import (  # type: ignore
-    BasicEntity,
-    ConnectRequest,
-    ConnectResponse,
+from aioesphomeapi.api_pb2 import (  # type: ignore
+    AuthenticationRequest,
+    AuthenticationResponse,
     DeviceInfoRequest,
-    DeviceInfoResponse,
     DisconnectRequest,
     DisconnectResponse,
     GetTimeRequest,
@@ -18,7 +16,6 @@ from . import (  # type: ignore
     HelloResponse,
     ListEntitiesDoneResponse,
     ListEntitiesRequest,
-    MESSAGE_TYPE_TO_PROTO,
     PingRequest,
     PingResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -27,6 +24,9 @@ from . import (  # type: ignore
     SubscribeLogsResponse,
     SubscribeStatesRequest,
 )
+from aioesphomeapi.core import MESSAGE_TYPE_TO_PROTO
+
+from .basic_entity import BasicEntity
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -101,8 +101,8 @@ class NativeApiConnection:
 
             if type(msg) == HelloRequest:
                 await self.handle_hello(msg)
-            elif type(msg) == ConnectRequest:
-                await self.handle_connect(msg)
+            elif type(msg) == AuthenticationRequest:
+                await self.handle_authentication(msg)
             elif type(msg) == DisconnectRequest:
                 await self.handle_disconnect(msg)
             elif type(msg) == SubscribeLogsRequest:
@@ -121,8 +121,8 @@ class NativeApiConnection:
         resp = HelloResponse(api_version_major=1, api_version_minor=10)
         await self.write_message(resp)
 
-    async def handle_connect(self, msg):
-        resp = ConnectResponse()
+    async def handle_authentication(self, msg):
+        resp = AuthenticationResponse(invalid_password=False)
         await self.write_message(resp)
 
     async def handle_disconnect(self, msg):

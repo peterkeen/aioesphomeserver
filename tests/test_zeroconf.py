@@ -25,11 +25,12 @@ class MyListener:
             if value is not None:
                 print(f"    {key.decode('utf-8')}: {value.decode('utf-8')}")
 
-zeroconf = Zeroconf()
-listener = MyListener()
-browser = ServiceBrowser(zeroconf, "_esphomelib._tcp.local.", listener)
+if __name__ == "__main__":
+    zeroconf = Zeroconf()
+    listener = MyListener()
+    browser = ServiceBrowser(zeroconf, "_esphomelib._tcp.local.", listener)
 
-try:
-    input("Press enter to exit...\n\n")
-finally:
-    zeroconf.close()
+    try:
+        input("Press enter to exit...\n\n")
+    finally:
+        zeroconf.close()

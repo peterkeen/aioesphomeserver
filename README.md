@@ -43,6 +43,17 @@ asyncio.run(device.run())
 
 Now you can visit `localhost:8080` to view the web interface or add your device to Home Assistant through the ESPHome integration.
 
+## Development
+
+This project is managed with [uv](https://docs.astral.sh/uv/). It targets Python 3.14; uv will use the version pinned in `.python-version`.
+
+```bash
+uv sync
+uv run pytest
+uv lock --upgrade
+uv export --format requirements.txt --no-dev --no-emit-project --no-hashes --output-file requirements.txt
+```
+
 ## Interfacing with your own code
 
 Implement a listener:
